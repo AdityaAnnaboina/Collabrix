@@ -1,6 +1,6 @@
 # 🌐 MeetHub — Enterprise-Grade Video Conferencing Platform
 
-MeetHub is a production-ready, highly scalable, real-time video conferencing platform inspired by Google Meet and Zoom. Built using a modern **hybrid monorepo architecture**, it provides low-latency HD video/audio calls, dynamic screen sharing, real-time persistent chat, lobby waitlists, and host moderation tools.
+MeetHub is a production-grade, highly scalable real-time video conferencing platform inspired by Google Meet, Zoom, and Microsoft Teams. It is designed to support low-latency HD video calls, crystal-clear audio, dynamic screen sharing, real-time persistent chat, lobby waitlists, and host moderation.
 
 Designed with **connection resilience** and **horizontal scalability** at its core, MeetHub features advanced WebRTC signal negotiation, sub-second active speaker detection, and automatic ICE connection recovery.
 
@@ -42,9 +42,9 @@ Designed with **connection resilience** and **horizontal scalability** at its co
 
 ---
 
-## 🏗️ System Architecture
+## 🏗️ Architectural Overview & System Design
 
-The following diagram illustrates how clients communicate, establish Peer-to-Peer (P2P) connections, and sync state through the signaling backend:
+MeetHub uses a hybrid monorepo design, separating frontend UI presentation from backend WebSocket state sync and REST endpoints.
 
 ```mermaid
 graph TD
@@ -69,6 +69,43 @@ graph TD
     SocketIO <-->|6. Redis Adapter| Redis[(Redis Pub/Sub)]
 ```
 
+*   **Frontend**: Built with **Next.js App Router (React 19)**, **TypeScript**, **Tailwind CSS**, and **Zustand** for lightweight local state. Stream negotiation and tracking are handled by standard WebRTC APIs and a custom signaling controller.
+*   **Backend**: Powered by **Node.js**, **Express**, **TypeScript**, and **Socket.IO**. Database operations are orchestrated via **Prisma ORM** connecting to a **PostgreSQL** or **SQLite** instance.
+*   **Real-time State Sync**: Scaled horizontally across server instances using **Redis Pub/Sub adapter**. Real-time room participant configurations are cached in Redis hashes to reduce database load.
+*   **Infrastructure**: Packaged inside Docker containers fronted by **Nginx** acting as a secure reverse proxy with SSL termination (mandatory for WebRTC secure contexts).
+
+---
+
+## 📂 Directory Structure
+
+```
+gmeetclone/
+├── backend/                  # Node.js signaling & auth server
+│   ├── prisma/               # Postgres/SQLite schemas & migrations
+│   ├── src/
+│   │   ├── config/           # Database, env, Redis clients
+│   │   ├── controllers/      # REST API handlers (Auth, Rooms)
+│   │   ├── middleware/       # JWT validations, error boundaries
+│   │   ├── routes/           # REST endpoints
+│   │   ├── services/         # Token signing, Redis room state managers
+│   │   ├── sockets/          # Socket.IO signaling event handlers
+│   │   └── index.ts          # Server bootstrapper
+│   └── Dockerfile
+├── frontend/                 # Next.js App Router frontend
+│   ├── src/
+│   │   ├── app/              # Views (auth pages, lobby, room)
+│   │   ├── components/       # UI (VideoGrid, MeetingControls, Sidebar, Diagnostics)
+│   │   ├── hooks/            # WebRTC, devices, active speaker nodes
+│   │   ├── services/         # API HTTP fetch helpers
+│   │   └── store/            # Zustand state stores (Room, Auth)
+│   └── Dockerfile
+├── infra/
+│   └── nginx/
+│       └── default.conf      # Nginx proxy mapping HTTP/HTTPS & WebSockets
+├── docker-compose.yml        # Multi-service container orchestrator
+└── README.md                 # Documentation
+```
+
 ---
 
 ## 🌟 Key Features
@@ -78,53 +115,64 @@ graph TD
 *   **💬 Real-Time Persistent Chat**: In-meeting message sync stored in the database.
 *   **🔒 Host Controls & Moderation**: Lobby approval, meeting locking, and participant controls.
 *   **⚡ Active Speaker Tracking**: Real-time voice analysis via Web Audio API `AnalyserNode` to highlight the current speaker.
-*   **📈 Developer Diagnostics Panel**: Live diagnostic overlay parsing `RTCPeerConnection.getStats()` (bitrate, packet loss, RTT, and FPS) every 3 seconds.
+*   **📈 Developer Diagnostics Panel**: Live diagnostic overlay parsing `RTCPeerConnection.getStats()` (bitrate, packet loss, RTT, and FPS).
 
 ---
 
-## 🔧 WebRTC Optimization & Engineering Challenges
+## 🎥 WebRTC Optimization & Resilience Strategies
 
-MeetHub applies enterprise-grade connection strategies to ensure high quality of service:
-
-### 1. Connection Resilience (Automatic ICE Restart)
-WebRTC connections can fail due to changing network interfaces (e.g., switching from Wi-Fi to cellular). MeetHub monitors `iceconnectionstatechange`. If the connection falls to `failed` or `disconnected`, the client automatically triggers an **ICE Restart** (`pc.createOffer({ iceRestart: true })`) to re-establish peer connectivity seamlessly without dropping the call.
-
-### 2. Instant Media Track Swapping
-To change cameras or microphones during a live call, MeetHub avoids costly connection teardowns. Instead, it utilizes `RTCRtpSender.replaceTrack` to swap media sources on the fly, keeping the connection alive.
-
-### 3. Horizontal Socket Scaling
-To support thousands of concurrent calls, the signaling backend is stateless. When scaled horizontally behind a load balancer, instances use `@socket.io/redis-adapter` to synchronize room events (such as WebRTC offers, answers, and ICE candidates) across separate servers using Redis Pub/Sub channels.
+MeetHub applies enterprise-grade connection optimizations:
+1.  **Connection Resilience (Automatic ICE Restart)**: Monitors `iceconnectionstatechange`. If states drop to `failed` or `disconnected`, the client initiates an **ICE Restart** (`pc.createOffer({ iceRestart: true })`) to heal the connection on the fly without dropping calls.
+2.  **Crystal-Clear Audio**: Employs Web Audio settings like `echoCancellation`, `noiseSuppression`, and `autoGainControl`.
+3.  **Instant Track Swaps**: When switching inputs (cameras/microphones), it uses `RTCRtpSender.replaceTrack` to feed the new media directly into the active connection without renegotiation.
+4.  **Active Speaker focus**: Computes local volume spikes using a Web Audio `AnalyserNode` and broadcasts speaking statuses.
+5.  **Screen Sharing**: Captures desktop frames via `getDisplayMedia`, overrides active video tracks on the fly, and recovers the camera stream on screen share end.
 
 ---
 
-## 📂 Directory Structure
+## 📈 Scaling Strategies
 
-```
-gmeetclone/
-├── backend/                  # Node.js signaling & auth server
-│   ├── prisma/               # Database schemas & migrations
-│   ├── src/
-│   │   ├── config/           # Database, env, Redis clients
-│   │   ├── controllers/      # REST API handlers
-│   │   ├── middleware/       # JWT validations, error boundaries
-│   │   ├── routes/           # REST endpoints
-│   │   ├── services/         # Token signing, room state
-│   │   ├── sockets/          # Socket.IO event handlers
-│   │   └── index.ts          # Server entrypoint
-│   └── Dockerfile
-├── frontend/                 # Next.js App Router frontend
-│   ├── src/
-│   │   ├── app/              # Auth, lobby, room views
-│   │   ├── components/       # UI (VideoGrid, Diagnostics, Controls)
-│   │   ├── hooks/            # WebRTC, devices, active speaker
-│   │   └── store/            # Zustand state stores
-│   └── Dockerfile
-├── infra/
-│   └── nginx/
-│       └── default.conf      # Reverse proxy config
-├── docker-compose.yml        # Multi-service container orchestrator
-└── README.md                 # Project Documentation
-```
+### Horizontal Socket Scaling
+MeetHub backend signaling servers are stateless. Using `@socket.io/redis-adapter`:
+*   Users can connect to different server replicas (e.g., Load-balanced Node Server A or B).
+*   Event messages (SDPs, chat posts, toggles) are broadcasted to all corresponding nodes using Redis Pub/Sub channels.
+
+### Room State Clustering
+Active room participants lists are kept in Redis hashes under `room:state:{roomCode}`. Reads and state toggles do not hit the database during calls.
+
+---
+
+## 🛠️ Developer Diagnostics Panel
+Click the **Bug Icon 🐛** in the control bar to open the developer overlay. It collects real-time diagnostics from `RTCPeerConnection.getStats()` every 3 seconds:
+*   **Latency (RTT)**: Displays round-trip transmission speed in milliseconds.
+*   **Packet Loss**: Measures network congestion ratios.
+*   **Bitrate**: Gross bandwidth transmission in kbps.
+*   **Video FPS**: Tracks video playback framerates.
+
+---
+
+## 🗺️ Future Improvement Roadmap
+
+For rooms larger than 8 participants, Mesh topology can saturate client bandwidth. The codebase is modularly structured to support upgrading to an **SFU (Selective Forwarding Unit)** topology in the future:
+1.  **Mediasoup Container Addition**: Integrate a `mediasoup` SFU container to receive video feeds.
+2.  **Stream Routing Adjustments**: Instead of generating $(N-1)$ connections, update `useWebRTC` to maintain one `SendTransport` and multiple `RecvTransports` from the SFU.
+
+---
+
+## ⚙️ Environment Configurations
+
+Create a `.env` file in the root directory. The docker-compose orchestrator and local setup read these values:
+
+| Variable | Dev Value | Description |
+| :--- | :--- | :--- |
+| `PORT` | `5000` | Port for the backend signaling server. |
+| `DATABASE_URL` | `file:./dev.db` | Connection string to database (SQLite path or PostgreSQL URI). |
+| `REDIS_URL` | `redis://localhost:6379` | Connection string to Redis instance. |
+| `JWT_ACCESS_SECRET` | `your_secret_access` | JWT access token signature key. |
+| `JWT_REFRESH_SECRET` | `your_secret_refresh` | JWT refresh token signature key. |
+| `FRONTEND_URL` | `http://localhost:3000` | Origin URL of the frontend proxy / NextJS server. |
+| `NODE_ENV` | `development` | Environment status (`development` \| `production`). |
+| `REDIS_ENABLED` | `false` | Enable or disable Redis pub/sub adapter. |
 
 ---
 
