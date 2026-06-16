@@ -1,8 +1,8 @@
-# 🌐 MeetHub — Enterprise-Grade Video Conferencing Platform
+# 🌐 Collabrix — Enterprise-Grade Video Conferencing Platform
 
-MeetHub is a production-grade, highly scalable real-time video conferencing platform inspired by Google Meet, Zoom, and Microsoft Teams. It is designed to support low-latency HD video calls, crystal-clear audio, dynamic screen sharing, real-time persistent chat, lobby waitlists, and host moderation.
+Collabrix is a production-grade, highly scalable real-time video conferencing platform inspired by Google Meet, Zoom, and Microsoft Teams. It is designed to support low-latency HD video calls, crystal-clear audio, dynamic screen sharing, real-time persistent chat, lobby waitlists, and host moderation.
 
-Designed with **connection resilience** and **horizontal scalability** at its core, MeetHub features advanced WebRTC signal negotiation, sub-second active speaker detection, and automatic ICE connection recovery.
+Designed with **connection resilience** and **horizontal scalability** at its core, Collabrix features advanced WebRTC signal negotiation, sub-second active speaker detection, and automatic ICE connection recovery.
 
 ---
 
@@ -44,7 +44,7 @@ Designed with **connection resilience** and **horizontal scalability** at its co
 
 ## 🏗️ Architectural Overview & System Design
 
-MeetHub uses a hybrid monorepo design, separating frontend UI presentation from backend WebSocket state sync and REST endpoints.
+Collabrix uses a hybrid monorepo design, separating frontend UI presentation from backend WebSocket state sync and REST endpoints.
 
 ```mermaid
 graph TD
@@ -53,20 +53,20 @@ graph TD
     ClientB["Client B (Firefox/Chrome)"]
     
     %% WebRTC Connection
-    ClientA <-->|1. WebRTC Peer-to-Peer (Media Streams)| ClientB
+    ClientA ---|1. WebRTC P2P Media Streams| ClientB
 
     %% Signaling Through Proxy
-    ClientA <-->|2. WS / HTTP| Nginx[Nginx Reverse Proxy]
-    ClientB <-->|2. WS / HTTP| Nginx
+    ClientA ---|2. WS / HTTP| Nginx[Nginx Reverse Proxy]
+    ClientB ---|2. WS / HTTP| Nginx
 
     %% Services
     Nginx -->|3. Route: Port 3000| NextJS[Next.js App Server]
     Nginx -->|3. Route: Port 5000| Express[Express Server]
 
     %% Databases & Adapters
-    Express <-->|4. WebSocket Signaling| SocketIO[Socket.IO Server]
-    Express <-->|5. Prisma ORM| DB[(SQLite / PostgreSQL)]
-    SocketIO <-->|6. Redis Adapter| Redis[(Redis Pub/Sub)]
+    Express ---|4. WebSocket Signaling| SocketIO[Socket.IO Server]
+    Express -->|5. Prisma ORM| DB[(SQLite / PostgreSQL)]
+    SocketIO ---|6. Redis Adapter| Redis[(Redis Pub/Sub)]
 ```
 
 *   **Frontend**: Built with **Next.js App Router (React 19)**, **TypeScript**, **Tailwind CSS**, and **Zustand** for lightweight local state. Stream negotiation and tracking are handled by standard WebRTC APIs and a custom signaling controller.
@@ -121,7 +121,7 @@ gmeetclone/
 
 ## 🎥 WebRTC Optimization & Resilience Strategies
 
-MeetHub applies enterprise-grade connection optimizations:
+Collabrix applies enterprise-grade connection optimizations:
 1.  **Connection Resilience (Automatic ICE Restart)**: Monitors `iceconnectionstatechange`. If states drop to `failed` or `disconnected`, the client initiates an **ICE Restart** (`pc.createOffer({ iceRestart: true })`) to heal the connection on the fly without dropping calls.
 2.  **Crystal-Clear Audio**: Employs Web Audio settings like `echoCancellation`, `noiseSuppression`, and `autoGainControl`.
 3.  **Instant Track Swaps**: When switching inputs (cameras/microphones), it uses `RTCRtpSender.replaceTrack` to feed the new media directly into the active connection without renegotiation.
@@ -133,7 +133,7 @@ MeetHub applies enterprise-grade connection optimizations:
 ## 📈 Scaling Strategies
 
 ### Horizontal Socket Scaling
-MeetHub backend signaling servers are stateless. Using `@socket.io/redis-adapter`:
+Collabrix backend signaling servers are stateless. Using `@socket.io/redis-adapter`:
 *   Users can connect to different server replicas (e.g., Load-balanced Node Server A or B).
 *   Event messages (SDPs, chat posts, toggles) are broadcasted to all corresponding nodes using Redis Pub/Sub channels.
 
@@ -178,7 +178,7 @@ Create a `.env` file in the root directory. The docker-compose orchestrator and 
 
 ## 🚀 Quick Start Guide
 
-You can run MeetHub either using Docker Compose (recommended for production-like local testing) or directly using Node/NPM.
+You can run Collabrix either using Docker Compose (recommended for production-like local testing) or directly using Node/NPM.
 
 ### Option A: Running Locally with Node/NPM (No Docker)
 
@@ -242,7 +242,7 @@ Open **`https://localhost`** in your browser.
 
 ## ☁️ Deployment (100% Free Production Stack)
 
-To deploy MeetHub completely for free with data persistence, follow this architecture:
+To deploy Collabrix completely for free with data persistence, follow this architecture:
 
 ### 1. Database (Supabase or Neon PostgreSQL)
 Since local SQLite databases are deleted on ephemeral containers (like Render's free tier), use a free cloud PostgreSQL database:
