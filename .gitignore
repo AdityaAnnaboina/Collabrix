@@ -47,3 +47,6 @@ Thumbs.db
 
 # TypeScript build info
 *.tsbuildinfo
+
+# Local docs/interview guides (not pushed to GitHub)
+information_and_interview_guide/

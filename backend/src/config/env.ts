@@ -11,7 +11,7 @@ const envSchema = z.object({
   REDIS_URL: z.string().optional().default('redis://localhost:6379'),
   JWT_ACCESS_SECRET: z.string().min(8),
   JWT_REFRESH_SECRET: z.string().min(8),
-  FRONTEND_URL: z.string().url(),
+  FRONTEND_URL: z.string().url().transform((val) => val.replace(/\/$/, '')),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   REDIS_ENABLED: z.string().optional().default('false'),
 });
